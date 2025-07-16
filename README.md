@@ -37,8 +37,8 @@ This tool enables students to upload their study materials (PDFs, notes, slides)
 ## Project Status
 
 Current progress:
-- [ ] Document upload and chunking
-- [ ] Embedding pipeline
+- [X] Document upload and chunking
+- [X] Embedding pipeline
 - [ ] Review session basis
 - [ ] Feedback loop and memory model integration
 - [ ] Calendar integration and scheduling logic
