@@ -11,6 +11,7 @@ import openai
 from typing import List, Tuple, Optional
 import os
 from .chunking import Chunker
+from typing import BinaryIO
 
 from dotenv import load_dotenv
 load_dotenv()
@@ -38,16 +39,17 @@ def embed_chunks(chunks: List[str], model: str = "text-embedding-3-small") -> Li
     return [item.embedding for item in response.data]
 
 
-def embed_pdf(pdf_path: str, chunker_args: Optional[dict] = None, embedding_model: str = "text-embedding-3-small") -> Tuple[List[str], List[List[float]]]:
+def embed_pdf(pdf_file: BinaryIO, chunker_args: Optional[dict] = None, embedding_model: str = "text-embedding-3-small") -> Tuple[List[str], List[List[float]]]:
     """
-    Extracts text from a PDF, chunks it, and returns both the chunks and their embeddings.
+    Takes in a PDF file as a binary stream, extracts text, chunks it, and returns chunks and their embeddings.
+
     chunker_args can optionally contain 'max_chars' and 'min_chars'.
     """
     chunker_args = chunker_args or {}
-    max_chars = chunker_args["max_chars"] if "max_chars" in chunker_args else 1000
-    min_chars = chunker_args["min_chars"] if "min_chars" in chunker_args else 100
+    max_chars = chunker_args.get("max_chars", 1000)
+    min_chars = chunker_args.get("min_chars", 100)
     chunker = Chunker(max_chars, min_chars)
-    text = chunker.extract_text(pdf_path)
+    text = chunker.extract_text(pdf_file)
     chunks = chunker.chunk_merged_paragraphs(text)
     embeddings = embed_chunks(chunks, model=embedding_model)
     return chunks, embeddings

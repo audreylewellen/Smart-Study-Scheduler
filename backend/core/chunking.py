@@ -1,5 +1,6 @@
 import re
 import fitz
+from typing import BinaryIO
 
 class Chunker:
     """
@@ -19,13 +20,13 @@ class Chunker:
         self.max_chars = max_chars
         self.min_chars = min_chars
 
-    def extract_text(self, pdf_path):
+    def extract_text(self, pdf_stream: BinaryIO) -> str:
         """
-        Extract text from a PDF file, treating each block as a paragraph.
+        Extract text from a PDF file stream, treating each block as a paragraph.
         Internal newlines within a block are replaced with spaces.
         Blocks are joined with double newlines to mark paragraph boundaries.
         """
-        doc = fitz.open(pdf_path)
+        doc = fitz.open(stream=pdf_stream.read(), filetype="pdf")
         paragraphs = []
         for page in doc:
             blocks = page.get_text("blocks")
