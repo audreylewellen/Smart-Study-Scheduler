@@ -39,7 +39,7 @@ This tool enables students to upload their study materials (PDFs, notes, slides)
 Current progress:
 - [X] Document upload and chunking
 - [X] Embedding pipeline
-- [ ] Review session basis
+- [X] Review session basis
 - [ ] Feedback loop and memory model integration
 - [ ] Calendar integration and scheduling logic
 - [ ] AI-powered recall prompt generation

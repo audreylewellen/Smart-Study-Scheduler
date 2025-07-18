@@ -10,14 +10,19 @@ import uuid
 def store_chunks(chunks : list[str], embeddings: list[list[float]], user_id, document_id): 
     """ 
     Stores given chunks and their corresponding embeddings for a given document id. 
+    Returns a list of chunk IDs that were store in order by chunk in document and by document.
     """
     if len(chunks) != len(embeddings): 
         raise Exception("Unequal number of chunk and embeddings")
     
     # Build data entries to enter in database
+    chunk_ids = []
     data = []
     for i in range(len(chunks)): 
+        chunk_id = str(uuid.uuid4())
+        chunk_ids.append(chunk_id)
         data.append({
+            "id": chunk_id,
             "document_id": document_id, 
             "user_id": user_id,
             "chunk_index": i, 
@@ -27,16 +32,17 @@ def store_chunks(chunks : list[str], embeddings: list[list[float]], user_id, doc
 
     try: 
         supabase.from_("document_chunks").upsert(data).execute()
+        return chunk_ids
     except Exception as e:
         print(f"Error storing chunks: {e}")
         raise
 
-def store_file(user_id, document_id, pdf_bytes, file_name):
+def store_file(user_id, class_id, document_id, pdf_bytes, file_name):
     """ 
     Stores a file in Supabase bucket storage. 
     """
     try: 
-        storage_path = f"{user_id}/{document_id}/{file_name}"
+        storage_path = f"{user_id}/{class_id}/{document_id}/{file_name}"
 
         # Store file in bucket 
         supabase.storage.from_("documents").upload(
@@ -49,6 +55,7 @@ def store_file(user_id, document_id, pdf_bytes, file_name):
         supabase.from_("documents").upsert({
             "id": document_id,
             "user_id": user_id,
+            "class_id": class_id,
             "filename": file_name,
             "pdf_path": storage_path,
         }).execute()
