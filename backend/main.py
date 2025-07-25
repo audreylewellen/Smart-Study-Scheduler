@@ -5,10 +5,11 @@ from backend.core.scheduling import Scheduler, UserPreferences
 import backend.db.chunks
 import backend.db.schedule
 import backend.db.classes
+import backend.db.reviews
 import uuid
 from io import BytesIO
 from typing import List, Optional
-from datetime import datetime
+from datetime import datetime, date
 import json 
 from backend.db.database import supabase
 from backend.db.auth import verify_supabase_jwt, login_user, signup_user, refresh_user_token
@@ -117,3 +118,45 @@ async def upload_batch(
     except Exception as e:
         print(e)
         raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/reviews/today")
+async def get_todays_reviews(user_id: str = Depends(verify_supabase_jwt)):
+    """Get today's review tasks for the user"""
+    today = date.today().isoformat()
+    reviews = backend.db.reviews.get_todays_reviews(user_id, today)
+    return {"reviews": reviews}
+
+@app.post("/api/reviews/start")
+async def start_review_session(request: Request, user_id: str = Depends(verify_supabase_jwt)):
+    """Start a review session and get the first chunk to review"""
+    data = await request.json()
+    chunk_id = data.get("chunk_id")
+    
+    if not chunk_id:
+        raise HTTPException(status_code=400, detail="chunk_id is required")
+    
+    # Mark the chunk as being reviewed
+    backend.db.reviews.start_review_session(user_id, chunk_id)
+    
+    # Get the chunk text
+    chunk_text = backend.db.chunks.get_chunk_text(chunk_id, user_id)
+    if not chunk_text:
+        raise HTTPException(status_code=404, detail="Chunk not found")
+    
+    return {"chunk_text": chunk_text, "chunk_id": chunk_id}
+
+@app.post("/api/reviews/complete")
+async def complete_review_session(request: Request, user_id: str = Depends(verify_supabase_jwt)):
+    """Complete a review session"""
+    data = await request.json()
+    chunk_id = data.get("chunk_id")
+    
+    if not chunk_id:
+        raise HTTPException(status_code=400, detail="chunk_id is required")
+    
+    # Mark the review as completed
+    success = backend.db.reviews.complete_review(user_id, chunk_id)
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to complete review")
+    
+    return {"status": "completed", "chunk_id": chunk_id}

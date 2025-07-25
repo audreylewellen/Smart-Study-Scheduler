@@ -55,7 +55,7 @@ export default function ClassDetailPage() {
     setError(null);
     const formData = new FormData();
     formData.append("class_id", classId);
-    formData.append("study_days", JSON.stringify([0, 2, 4])); // 0=Monday, 2=Wednesday, 4=Friday
+    formData.append("study_days", JSON.stringify([0, 1, 2, 3, 4])); 
     formData.append("intensity", "light");
     selectedFiles.forEach((file) => {
       formData.append("pdfs", file, file.name);

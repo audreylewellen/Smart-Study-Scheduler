@@ -64,6 +64,27 @@ def store_file(user_id, class_id, document_id, pdf_bytes, file_name):
         print(f"Error storing file: {e}")
         raise
 
+def get_chunk_text(chunk_id: str, user_id: str) -> str:
+    """
+    Retrieve the text content of a specific chunk.
+    
+    Args:
+        chunk_id: The ID of the chunk to retrieve
+        user_id: The user ID for security
+        
+    Returns:
+        The text content of the chunk, or None if not found
+    """
+    try:
+        result = supabase.table("document_chunks").select("text").eq("id", chunk_id).eq("user_id", user_id).execute()
+        
+        if hasattr(result, "data") and result.data:
+            return result.data[0]["text"]
+        return None
+    except Exception as e:
+        print(f"Error retrieving chunk text: {e}")
+        return None
+
 # Mock example for testing:
 if __name__ == "__main__":
     store_chunks(["hello"], [None], str(uuid.uuid4()), str(uuid.uuid4()))
