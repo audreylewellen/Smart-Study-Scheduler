@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL;
 
@@ -28,59 +29,69 @@ export default function LoginPage() {
       localStorage.setItem("token", data.token);
       localStorage.setItem("refresh_token", data.refresh_token);
       router.push("/dashboard");
-    } catch (err: any) {
-      setError(err.message || "Login failed");
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message || "Login failed");
+      } else {
+        setError("Login failed");
+      }
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gray-50">
-      <form
-        onSubmit={handleLogin}
-        className="bg-white p-8 rounded shadow-md w-full max-w-sm"
-      >
-        <h1 className="text-2xl font-semibold mb-6 text-center">Login</h1>
-        <div className="mb-4">
-          <label className="block mb-1 text-sm font-medium" htmlFor="email">
-            Email
-          </label>
-          <input
-            id="email"
-            type="email"
-            value={email}
-            onChange={e => setEmail(e.target.value)}
-            className="w-full border px-3 py-2 rounded focus:outline-none focus:ring"
-            required
-            autoComplete="email"
-          />
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 px-4">
+      <div className="bg-white/90 shadow-xl rounded-2xl p-10 w-full max-w-md flex flex-col items-center">
+        <div className="mb-6 flex flex-col items-center">
+          <span className="text-3xl font-extrabold text-indigo-700 mb-2">StudySync</span>
+          <h1 className="text-2xl font-bold text-gray-900">Login</h1>
         </div>
-        <div className="mb-6">
-          <label className="block mb-1 text-sm font-medium" htmlFor="password">
-            Password
-          </label>
-          <input
-            id="password"
-            type="password"
-            value={password}
-            onChange={e => setPassword(e.target.value)}
-            className="w-full border px-3 py-2 rounded focus:outline-none focus:ring"
-            required
-            autoComplete="current-password"
-          />
+        <form onSubmit={handleLogin} className="w-full flex flex-col gap-4">
+          <div>
+            <label className="block mb-1 text-sm font-medium text-gray-700" htmlFor="email">
+              Email
+            </label>
+            <input
+              id="email"
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              className="w-full border border-gray-300 px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400 text-base"
+              required
+              autoComplete="email"
+            />
+          </div>
+          <div>
+            <label className="block mb-1 text-sm font-medium text-gray-700" htmlFor="password">
+              Password
+            </label>
+            <input
+              id="password"
+              type="password"
+              value={password}
+              onChange={e => setPassword(e.target.value)}
+              className="w-full border border-gray-300 px-4 py-3 rounded-lg focus:outline-none focus:ring-2 focus:ring-indigo-400 text-base"
+              required
+              autoComplete="current-password"
+            />
+          </div>
+          {error && (
+            <div className="text-red-600 text-sm text-center">{error}</div>
+          )}
+          <button
+            type="submit"
+            className="w-full bg-indigo-600 text-white py-3 rounded-lg font-semibold text-lg shadow hover:bg-indigo-700 transition"
+            disabled={loading}
+          >
+            {loading ? "Logging in..." : "Login"}
+          </button>
+        </form>
+        <div className="mt-6 text-center text-gray-600 text-sm">
+          Don&apos;t have an account?{' '}
+          <Link href="/signup" className="text-indigo-600 font-semibold hover:underline">Sign up</Link>
         </div>
-        {error && (
-          <div className="mb-4 text-red-600 text-sm text-center">{error}</div>
-        )}
-        <button
-          type="submit"
-          className="w-full bg-blue-600 text-white py-2 rounded hover:bg-blue-700 transition"
-          disabled={loading}
-        >
-          {loading ? "Logging in..." : "Login"}
-        </button>
-      </form>
+      </div>
     </div>
   );
 } 

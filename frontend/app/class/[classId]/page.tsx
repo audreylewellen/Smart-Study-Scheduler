@@ -69,8 +69,12 @@ export default function ClassDetailPage() {
       if (!res.ok) throw new Error("Upload failed");
       setSelectedFiles([]);
       if (fileInputRef.current) fileInputRef.current.value = "";
-    } catch (err: any) {
-      setError(err.message || "Upload failed");
+    } catch (err: unknown) {
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("An error occurred");
+      }
     } finally {
       setUploading(false);
     }
