@@ -41,7 +41,7 @@ Current progress:
 - [X] Embedding pipeline
 - [X] Review session basis
 - [X] Feedback loop and memory model integration
-- [ ] Calendar integration and scheduling logic
+- [X] Calendar integration and scheduling logic
 - [X] AI-powered recall prompt generation
 
 ---

@@ -1,7 +1,10 @@
 from fastapi import FastAPI, UploadFile, File, Form, HTTPException, Depends, Header, Request
 from fastapi.middleware.cors import CORSMiddleware
 from backend.core.embedding import embed_pdf
-from backend.core.scheduling import Scheduler, UserPreferences
+from backend.core.scheduling import (
+    Scheduler, UserPreferences, schedule_next_quiz, schedule_next_review, schedule_followup_review,
+    find_next_available_slot, shift_tasks_forward
+)
 import backend.db.chunks
 import backend.db.schedule
 import backend.db.classes
@@ -15,6 +18,7 @@ from backend.db.database import supabase
 from backend.db.auth import verify_supabase_jwt, login_user, signup_user, refresh_user_token
 import os
 import openai
+from backend.db.preferences import get_user_preferences, set_user_preferences
 
 client = openai.OpenAI(api_key=os.getenv("OPENAI_API_KEY"))
 
@@ -28,10 +32,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-
-@app.post("/api/refresh")
-async def refresh_token(request: Request):
-    return await refresh_user_token(request)
 
 @app.post("/api/login")
 async def login(request: Request):
@@ -171,15 +171,18 @@ async def complete_review_session(request: Request, user_id: str = Depends(verif
     """Complete a review session"""
     data = await request.json()
     chunk_id = data.get("chunk_id")
-    
     if not chunk_id:
         raise HTTPException(status_code=400, detail="chunk_id is required")
-    
-    # Mark the review as completed
-    success = backend.db.reviews.complete_review(user_id, chunk_id)
-    if not success:
-        raise HTTPException(status_code=500, detail="Failed to complete review")
-    
+    from backend.db.database import supabase
+    from datetime import date
+    # Mark the learn task as completed
+    supabase.table("tasks").update({"completed": True}).eq("user_id", user_id).eq("chunk_id", chunk_id).eq("task_type", "learn").execute()
+    # Schedule a quiz for the next available day
+    quiz_task = schedule_next_quiz(user_id, chunk_id, date.today())
+    next_day = find_next_available_slot(user_id, supabase, date.today())
+    quiz_task["scheduled_date"] = next_day.isoformat()
+    supabase.table("tasks").upsert(quiz_task).execute()
+    shift_tasks_forward(user_id, supabase, next_day)
     return {"status": "completed", "chunk_id": chunk_id}
 
 @app.post("/api/quiz/submit")
@@ -193,7 +196,7 @@ async def submit_quiz_answer(request: Request, user_id: str = Depends(verify_sup
         raise HTTPException(status_code=400, detail="chunk_id and answer are required.")
     try:
         from backend.db.database import supabase
-        from datetime import timedelta
+        from datetime import date
         chunk_result = supabase.table("document_chunks").select("text").eq("id", chunk_id).single().execute()
         chunk_text = ""
         if hasattr(chunk_result, "data") and chunk_result.data:
@@ -259,37 +262,58 @@ async def submit_quiz_answer(request: Request, user_id: str = Depends(verify_sup
             "timestamp": datetime.utcnow().isoformat(),
             "task_type": task_type or "quiz"
         }).execute()
-        # If correct, mark the task as completed
-        if ai_score == 1:
-            supabase.table("tasks").update({"completed": True}).eq("user_id", user_id).eq("chunk_id", chunk_id).execute()
-        # Get or create memory interval for this chunk/user
-        memory_result = supabase.table("memory_model").select("interval_days").eq("user_id", user_id).eq("chunk_id", chunk_id).single().execute()
-        interval = 1
-        if hasattr(memory_result, "data") and memory_result.data and "interval_days" in memory_result.data:
-            interval = memory_result.data["interval_days"]
-        # Update interval: double if correct, reset to 1 if incorrect
-        if ai_score == 1:
-            new_interval = interval * 2
-        else:
-            new_interval = 1
-        # Upsert memory model
-        supabase.table("memory_model").upsert({
-            "user_id": user_id,
-            "chunk_id": chunk_id,
-            "interval_days": new_interval
-        }).execute()
-        # Schedule next review task
-        from datetime import date
-        next_review_date = (date.today() + timedelta(days=new_interval)).isoformat()
-        supabase.table("tasks").upsert({
-            "user_id": user_id,
-            "chunk_id": chunk_id,
-            "scheduled_date": next_review_date,
-            "task_type": "review",
-            "completed": False
-        }).execute()
-        # --- End memory model logic ---
+        # Mark the task as completed
+        supabase.table("tasks").update({"completed": True}).eq("user_id", user_id).eq("chunk_id", chunk_id).eq("task_type", task_type).execute()
+        # Next task scheduling logic
+        today = date.today()
+        if task_type == "learn":
+            # Schedule a quiz for the next available day
+            quiz_task = schedule_next_quiz(user_id, chunk_id, today)
+            next_day = find_next_available_slot(user_id, supabase, today)
+            quiz_task["scheduled_date"] = next_day.isoformat()
+            supabase.table("tasks").upsert(quiz_task).execute()
+            shift_tasks_forward(user_id, supabase, next_day)
+        elif task_type == "quiz":
+            # Schedule a review, interval depends on correctness
+            review_task = schedule_next_review(user_id, chunk_id, ai_score == 1, today)
+            next_day = find_next_available_slot(user_id, supabase, today)
+            review_task["scheduled_date"] = next_day.isoformat()
+            supabase.table("tasks").upsert(review_task).execute()
+            shift_tasks_forward(user_id, supabase, next_day)
+        elif task_type == "review":
+            # Schedule another review only if incorrect
+            followup = schedule_followup_review(user_id, chunk_id, ai_score == 1, today)
+            if followup:
+                next_day = find_next_available_slot(user_id, supabase, today)
+                followup["scheduled_date"] = next_day.isoformat()
+                supabase.table("tasks").upsert(followup).execute()
+                shift_tasks_forward(user_id, supabase, next_day)
         return {"feedback": ai_feedback, "score": ai_score}
     except Exception as e:
         print(f"Error storing quiz answer: {e}")
         raise HTTPException(status_code=500, detail="Failed to store quiz answer.")
+
+@app.get("/api/preferences")
+async def get_preferences(user_id: str = Depends(verify_supabase_jwt)):
+    prefs = get_user_preferences(user_id)
+    return {"preferences": prefs}
+
+@app.post("/api/preferences")
+async def set_preferences(request: Request, user_id: str = Depends(verify_supabase_jwt)):
+    data = await request.json()
+    study_days = data.get("study_days")
+    intensity = data.get("intensity")
+    if not isinstance(study_days, list) or not intensity:
+        raise HTTPException(status_code=400, detail="study_days (list) and intensity (str) required")
+    success = set_user_preferences(user_id, study_days, intensity)
+    if not success:
+        raise HTTPException(status_code=500, detail="Failed to set preferences")
+    return {"status": "ok"}
+
+@app.get("/api/tasks")
+async def get_tasks(start: str, end: str, user_id: str = Depends(verify_supabase_jwt)):
+    from backend.db.database import supabase
+    result = supabase.table("tasks").select(
+        "id, chunk_id, scheduled_date, task_type, completed"
+    ).eq("user_id", user_id).gte("scheduled_date", start).lte("scheduled_date", end).execute()
+    return {"tasks": result.data if hasattr(result, "data") else []}

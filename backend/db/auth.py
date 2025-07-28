@@ -86,40 +86,4 @@ async def signup_user(request: Request):
         raise HTTPException(status_code=500, detail=str(e))
 
 async def refresh_user_token(request: Request):
-    data = await request.json()
-    refresh_token = data.get("refresh_token")
-    print(f"[DEBUG] Received refresh_token: {refresh_token}")
-    if not refresh_token:
-        print("[DEBUG] No refresh token provided.")
-        raise HTTPException(status_code=400, detail="Refresh token is required.")
-    try:
-        result = supabase.auth.refresh_access_token(refresh_token)
-        print(f"[DEBUG] Supabase refresh_access_token result: {result}")
-        if hasattr(result, "session") and result.session is not None:
-            return {
-                "token": result.session.access_token,
-                "refresh_token": result.session.refresh_token
-            }
-        else:
-            print("[DEBUG] Failed to refresh token: No session in result.")
-            raise HTTPException(status_code=400, detail="Failed to refresh token.")
-    except Exception as e:
-        print(f"[DEBUG] Exception during refresh: {e}")
-        if "Server disconnected" in str(e):
-            print("[DEBUG] Retrying refresh_access_token after server disconnect...")
-            time.sleep(0.5)
-            try:
-                result = supabase.auth.refresh_access_token(refresh_token)
-                print(f"[DEBUG] Supabase refresh_access_token retry result: {result}")
-                if hasattr(result, "session") and result.session is not None:
-                    return {
-                        "token": result.session.access_token,
-                        "refresh_token": result.session.refresh_token
-                    }
-                else:
-                    print("[DEBUG] Failed to refresh token on retry: No session in result.")
-                    raise HTTPException(status_code=400, detail="Failed to refresh token after retry.")
-            except Exception as e2:
-                print(f"[DEBUG] Exception during refresh retry: {e2}")
-                raise HTTPException(status_code=500, detail=f"Refresh failed after retry: {str(e2)}")
-        raise HTTPException(status_code=500, detail=str(e)) 
+    raise HTTPException(status_code=501, detail="Token refresh not supported in backend. Use frontend Supabase JS client for refresh.") 

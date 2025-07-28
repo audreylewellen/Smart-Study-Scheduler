@@ -16,6 +16,7 @@ def get_todays_reviews(user_id: str, today: str) -> List[Dict]:
         ).eq("user_id", user_id).eq("scheduled_date", today).execute()
         
         if hasattr(result, "data"):
+            print(f"[DEBUG] get_todays_reviews for user {user_id} on {today}: {result.data}")
             return result.data
         return []
     except Exception as e:
