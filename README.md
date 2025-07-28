@@ -40,9 +40,9 @@ Current progress:
 - [X] Document upload and chunking
 - [X] Embedding pipeline
 - [X] Review session basis
-- [ ] Feedback loop and memory model integration
+- [X] Feedback loop and memory model integration
 - [ ] Calendar integration and scheduling logic
-- [ ] AI-powered recall prompt generation
+- [X] AI-powered recall prompt generation
 
 ---
 

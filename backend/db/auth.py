@@ -1,6 +1,7 @@
 from fastapi import HTTPException, Request, Header
 from backend.db.database import supabase
 import os
+import time
 
 SUPABASE_PROJECT_ID = os.environ["SUPABASE_PROJECT_ID"]
 
@@ -18,6 +19,19 @@ def verify_supabase_jwt(authorization: str = Header(...)):
             raise HTTPException(status_code=401, detail="Invalid token")
     except Exception as e:
         print(f"Verification error: {e}") 
+        if "Server disconnected" in str(e):
+            print("[DEBUG] Retrying get_user after server disconnect...")
+            time.sleep(0.5)
+            try:
+                result = supabase.auth.get_user(token)
+                if hasattr(result, "user") and result.user is not None:
+                    return result.user.id
+                else:
+                    print("No user found in result (retry)")  
+                    raise HTTPException(status_code=401, detail="Invalid token (retry)")
+            except Exception as e2:
+                print(f"Verification retry error: {e2}")
+                raise HTTPException(status_code=401, detail=f"Token verification failed after retry: {str(e2)}")
         if "expired" in str(e).lower():
             raise HTTPException(status_code=401, detail="Token expired. Please log in again.")
         raise HTTPException(status_code=401, detail=f"Token verification failed: {str(e)}")
@@ -74,16 +88,38 @@ async def signup_user(request: Request):
 async def refresh_user_token(request: Request):
     data = await request.json()
     refresh_token = data.get("refresh_token")
+    print(f"[DEBUG] Received refresh_token: {refresh_token}")
     if not refresh_token:
+        print("[DEBUG] No refresh token provided.")
         raise HTTPException(status_code=400, detail="Refresh token is required.")
     try:
         result = supabase.auth.refresh_access_token(refresh_token)
+        print(f"[DEBUG] Supabase refresh_access_token result: {result}")
         if hasattr(result, "session") and result.session is not None:
             return {
                 "token": result.session.access_token,
                 "refresh_token": result.session.refresh_token
             }
         else:
+            print("[DEBUG] Failed to refresh token: No session in result.")
             raise HTTPException(status_code=400, detail="Failed to refresh token.")
     except Exception as e:
+        print(f"[DEBUG] Exception during refresh: {e}")
+        if "Server disconnected" in str(e):
+            print("[DEBUG] Retrying refresh_access_token after server disconnect...")
+            time.sleep(0.5)
+            try:
+                result = supabase.auth.refresh_access_token(refresh_token)
+                print(f"[DEBUG] Supabase refresh_access_token retry result: {result}")
+                if hasattr(result, "session") and result.session is not None:
+                    return {
+                        "token": result.session.access_token,
+                        "refresh_token": result.session.refresh_token
+                    }
+                else:
+                    print("[DEBUG] Failed to refresh token on retry: No session in result.")
+                    raise HTTPException(status_code=400, detail="Failed to refresh token after retry.")
+            except Exception as e2:
+                print(f"[DEBUG] Exception during refresh retry: {e2}")
+                raise HTTPException(status_code=500, detail=f"Refresh failed after retry: {str(e2)}")
         raise HTTPException(status_code=500, detail=str(e)) 

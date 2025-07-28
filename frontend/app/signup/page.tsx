@@ -43,7 +43,6 @@ export default function SignupPage() {
 
   return (
     <>
-      <div style={{ color: 'red', fontWeight: 'bold', fontSize: 32 }}>DEBUG SIGNUP PAGE</div>
       <style>{`
         .force-black { color: #000 !important; }
       `}</style>

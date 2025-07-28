@@ -21,9 +21,9 @@ class Scheduler:
         }
         self.study_minutes_per_day = intensity_mapping[preferences.intensity]
 
-    def schedule_learn_tasks(self, chunk_ids: list[str], start_date: date | None = None):
+    def schedule_tasks(self, chunk_ids: list[str], start_date: date | None = None):
         """
-        Distributes chunks across available study days, starting from start_date (default today).
+        For each chunk, schedule a 'learn', then a 'quiz', then a 'review' task, spaced over days.
         Returns a list of scheduled tasks (dicts) with chunk, date, and task_type.
         """
         if not start_date:
@@ -34,25 +34,28 @@ class Scheduler:
         schedule = []
         day_pointer = 0
         buffer = defaultdict(list)
+        task_sequence = ["learn", "quiz", "review"]
+        spacing = 1  # days between each task type for a chunk
 
         for chunk_id in chunk_ids:
-            # Find next available day that matches study_days and has time
-            while True:
-                target_day = start_date + timedelta(days=day_pointer)
-                weekday = target_day.weekday()
-                used = len(buffer[target_day]) * estimated_minutes_per_chunk
-
-                if weekday in self.preferences.study_days and used + estimated_minutes_per_chunk <= daily_limit:
-                    task = {
-                        "user_id": self.user_id,
-                        "chunk_id": chunk_id,
-                        "date": target_day,
-                        "task_type": "learn",
-                    }
-                    buffer[target_day].append(task)
-                    break
-                else:
-                    day_pointer += 1
+            for i, task_type in enumerate(task_sequence):
+                while True:
+                    target_day = start_date + timedelta(days=day_pointer)
+                    weekday = target_day.weekday()
+                    used = len(buffer[target_day]) * estimated_minutes_per_chunk
+                    if weekday in self.preferences.study_days and used + estimated_minutes_per_chunk <= daily_limit:
+                        task = {
+                            "user_id": self.user_id,
+                            "chunk_id": chunk_id,
+                            "date": target_day,
+                            "task_type": task_type,
+                        }
+                        buffer[target_day].append(task)
+                        # Space out next task for this chunk
+                        day_pointer += spacing
+                        break
+                    else:
+                        day_pointer += 1
 
         # Flatten into list
         for day in sorted(buffer.keys()):

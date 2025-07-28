@@ -191,16 +191,29 @@ export default function DashboardPage() {
             {pendingReviews.length === 0 ? (
               <div className="text-gray-500 text-lg">No reviews scheduled for today!</div>
             ) : (
-              <div className="w-full flex flex-col items-center">
+              <div className="w-full flex flex-col items-center gap-4">
                 <p className="text-gray-700 mb-4 text-lg">
-                  You have <span className="font-bold text-indigo-600">{pendingReviews.length}</span> review(s) scheduled for today
+                  You have <span className="font-bold text-indigo-600">{pendingReviews.length}</span> task(s) scheduled for today
                 </p>
-                <button
-                  onClick={() => startReviewSession(pendingReviews[0].chunk_id)}
-                  className="bg-indigo-600 text-white px-8 py-3 rounded-lg font-semibold text-lg shadow hover:bg-indigo-700 transition"
-                >
-                  Start Review Session
-                </button>
+                {pendingReviews.map((task) => (
+                  <div key={task.id} className="w-full flex flex-col md:flex-row items-center gap-4 bg-white/80 rounded-lg p-4 shadow">
+                    <span className="font-semibold text-indigo-700 capitalize">{task.task_type}</span>
+                    <button
+                      onClick={() => {
+                        if (task.task_type === "learn" || task.task_type === "review") {
+                          router.push(`/review/${task.chunk_id}?type=${task.task_type}`);
+                        } else if (task.task_type === "quiz") {
+                          router.push(`/review/${task.chunk_id}?type=quiz`);
+                        }
+                      }}
+                      className="bg-indigo-600 text-white px-6 py-2 rounded-lg font-semibold shadow hover:bg-indigo-700 transition"
+                    >
+                      {task.task_type === "learn" && "Go to Learn"}
+                      {task.task_type === "review" && "Go to Review"}
+                      {task.task_type === "quiz" && "Take Quiz"}
+                    </button>
+                  </div>
+                ))}
               </div>
             )}
           </div>

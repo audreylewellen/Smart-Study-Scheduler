@@ -9,11 +9,11 @@ from typing import List, Dict, Optional
 from datetime import datetime
 
 def get_todays_reviews(user_id: str, today: str) -> List[Dict]:
-    """Get all review tasks scheduled for today"""
+    """Get all review tasks scheduled for today (all types)"""
     try:
         result = supabase.table("tasks").select(
             "id, chunk_id, scheduled_date, task_type, completed"
-        ).eq("user_id", user_id).eq("scheduled_date", today).eq("task_type", "learn").execute()
+        ).eq("user_id", user_id).eq("scheduled_date", today).execute()
         
         if hasattr(result, "data"):
             return result.data
@@ -25,8 +25,7 @@ def get_todays_reviews(user_id: str, today: str) -> List[Dict]:
 def start_review_session(user_id: str, chunk_id: str) -> bool:
     """Mark a chunk as being reviewed (start of review session)"""
     try:
-        # For now, we'll just return True since we don't have a 'reviewing' column
-        # In the future, you could add this column to track active review sessions
+        # For now, just return True since we don't have a 'reviewing' column
         return True
     except Exception as e:
         print(f"Error starting review session: {e}")
